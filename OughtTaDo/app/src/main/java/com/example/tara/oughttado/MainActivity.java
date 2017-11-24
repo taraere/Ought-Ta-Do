@@ -8,9 +8,11 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.Adapter;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.CheckedTextView;
 import android.widget.EditText;
 import android.widget.ListAdapter;
 import android.widget.ListView;
@@ -26,6 +28,7 @@ public class MainActivity extends AppCompatActivity {
     private ToDoDatabase mToDoDb;
     final Context context = this;
     private String task;
+    private TodoAdapter todoAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,68 +48,74 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "populateListView: Displaying data in the ListView.");
 
         // get data and append it to the list
-        Cursor data = mToDoDb.getData();
+        final Cursor data = mToDoDb.getData();
+        Log.d("taart0", "cake");
 
-        ArrayList<String> listData = new ArrayList<>();
-        // iterate through rows with moveToNext
-        while(data.moveToNext()) {
+        todoAdapter = new TodoAdapter(this, data);
+        Log.d("taart2", "cake");
 
-            // get value from data at column 1, titles
-            listData.add(data.getString(1));
-        }
-        // create list adapter and set adapter
-        ListAdapter mAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, listData);
-        listView.setAdapter(mAdapter);
+        listView.setAdapter(todoAdapter);
+
+        listView.setLongClickable(true);
 
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
                 task = adapterView.getItemAtPosition(i).toString();
-                Log.d(TAG, "onItemClick: You Clicked on " + task);
+                CheckedTextView checkbox = view.findViewById(R.id.funnycheckbox);
+                if (checkbox.isChecked()){
+                    int newCheckbox = 0;
+                    checkbox.setChecked(false);
+                    mToDoDb.update(newCheckbox, l);
 
-                Cursor data = mToDoDb.getItemID(task);
-                int itemID = -1;
-                while (data.moveToNext()) {
-                    itemID = data.getInt(0);
+                    populateListView();
+                    toastMsg("task is unchecked");
+                } else {
+                    int newCheckbox = 1;
+                    checkbox.setChecked(true);
+                    mToDoDb.update(newCheckbox, l);
+
+                    populateListView();
+                    toastMsg("task is checked");
                 }
-                if (itemID > -1) {
-                    Log.d(TAG, "onItemClick: The ID is: " + itemID);
-                    AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(
-                            context);
+            }
+        });
 
-                    // set title
-                    alertDialogBuilder.setTitle("Delete");
+        listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(AdapterView<?> adapterView, View view, int i, final long l) {
+                Log.d(TAG, "onItemLongClick: You Clicked on " + task);
+                AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(
+                        context);
 
-                    // set dialog message
-                    alertDialogBuilder
-                            .setMessage("Click Yes to delete this task!")
-                            .setCancelable(false)
-                            .setPositiveButton("Yes",new DialogInterface.OnClickListener() {
-                                public void onClick(DialogInterface dialog,int id) {
-                                    // if this button is clicked, delete and close
-                                    // current activity
-                                    mToDoDb.delete(task);
-                                    populateListView();
-                                    toastMsg(task + " deleted!");
-                                }
-                            })
-                            .setNegativeButton("Cancel",new DialogInterface.OnClickListener() {
-                                public void onClick(DialogInterface dialog,int id) {
-                                    // if this button is clicked, just close
-                                    // the dialog box and do nothing
-                                    dialog.cancel();
-                                }
-                            });
+                task = adapterView.getItemAtPosition(i).toString();
 
-                    // create alert dialog
-                    AlertDialog alertDialog = alertDialogBuilder.create();
+                // set dialog message
+                alertDialogBuilder
+                        .setMessage("Click Yes to Delete task")
+                        .setCancelable(false)
+                        .setPositiveButton("Yes",new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int id) {
+                                // if this button is clicked, delete and close
+                                // current activity
+                                mToDoDb.delete(l);
+                                populateListView();
+                            }
+                        })
+                        .setNegativeButton("Cancel",new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog,int id) {
+                                // if this button is clicked, just close
+                                // the dialog box and do nothing
+                                dialog.cancel();
+                            }
+                        });
 
-                    // show it
-                    alertDialog.show();
-                }
-                else {
-                    toastMsg("No ID associated with that name");
-                }
+                // create alert dialog
+                AlertDialog alertDialog = alertDialogBuilder.create();
+
+                // show it
+                alertDialog.show();
+                return true;
             }
         });
     }
@@ -127,14 +136,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void AddData(String newEntry) {
-        boolean insertData = mToDoDb.addData(newEntry);
+        boolean insertData = mToDoDb.addData(newEntry, false);
         if (insertData) {
-            toastMsg("Data Successfully Inserted");
+            toastMsg("Task added!");
         } else {
             toastMsg("Oops! Something's wrong");
         }
     }
-
 
     /*
     Customizable toast method
